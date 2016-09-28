@@ -14,6 +14,29 @@ from whoosh.fields import Schema, TEXT, ID, DATETIME
 
 import logging
 
+# from http://code.activestate.com/recipes/576684-simple-threading-decorator/
+def run_async(func):
+    from threading import Thread
+    from functools import wraps
+
+    @wraps(func)
+    def async_func(*args, **kwargs):
+        func_hl = Thread(target = func, args = args, kwargs = kwargs)
+        func_hl.start()
+        return func_hl
+
+    return async_func
+
+def element_visible(element):
+    if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
+        return False
+    elif isinstance(element, Comment):
+        return False
+
+    if element.strip():
+        return True
+    return False
+
 class HistoryMaster(controller.Master):
     def __init__(self, server):
         controller.Master.__init__(self, server)
@@ -28,96 +51,91 @@ class HistoryMaster(controller.Master):
             self.shutdown()
 
     def handle_response(self, flow):
-        flow.reply()
 
         start = timer()
 
-        doc = {
-            'ts': datetime.now()
-        }
+        @run_async
+        def parse_index_doc(flow, log, ix):
+            doc = {
+                'ts': datetime.now()
+            }
 
-        # ignore the port part if it's the default port
-        if ((flow.request.scheme == 'http' and flow.request.port != 80) or
-                (flow.request.scheme == 'https' and flow.request.port != 443)):
-            port = ':{}'.format(flow.request.port)
-        else:
-            port = ''
-
-        doc['url'] = unicode('{}://{}{}{}'.format(
-            flow.request.scheme,
-            flow.request.host,
-            port,
-            flow.request.path
-        ), "utf-8")
-
-        # we only care about success
-        if flow.response.code < 200 or flow.response.code >= 300:
-            self._log.debug('{} is not HTTP 2xx; skipping'.format(doc['url']))
-            return
-
-        # check content type for HTML
-        is_html = False
-        content_type = flow.response.headers.get('content-type')
-        if content_type:
-            for h in content_type:
-                if h.lower().startswith('text/html'):
-                    is_html = True
-                    break;
-
-        # we only care about HTML
-        if not is_html:
-            self._log.debug('{} is not HTML; skipping'.format(doc['url']))
-            return
-
-        # only care about GET, too
-        if flow.request.method != 'GET':
-            self._log.debug('{} is not GET; skipping'.format(doc['url']))
-            return
-
-        # avoid reindexing localhost (self)
-        if flow.request.host in ['127.0.0.1', 'localhost']:
-            self._log.debug('{} is localhost; skipping'.format(doc['url']))
-            return
-
-        # if we get this far, we have a response that we probably want to index
-        flow.response.decode()
-        soup = BeautifulSoup(flow.response.content, "lxml")
-        if soup.title and soup.title.string:
-            doc['title'] = soup.title.string.strip()
-        else:
-            doc['title'] = u''
-
-        texts = soup.findAll(text=True)
-        visible_texts = filter(self._visible, texts)
-        if visible_texts:
-            doc['content'] = re.sub(r'\s+', ' ', ' '.join(visible_texts))
-        else:
-            doc['content'] = None
-
-        # we only care to store non-empty docs:
-        try:
-            if doc['content']:
-                writer = self._ix.writer()
-                writer.add_document(**doc)
-                writer.commit()
-
-                self._log.info('{} -> {}'.format(doc['url'], doc['title']))
+            # ignore the port part if it's the default port
+            if ((flow.request.scheme == 'http' and flow.request.port != 80) or
+                    (flow.request.scheme == 'https' and flow.request.port != 443)):
+                port = ':{}'.format(flow.request.port)
             else:
-                self._log.info('{} (not indexed)'.format(doc['url']))
-        except UnicodeEncodeError:
-            self._log.warn('{} Unicode error in doc. Of course.'.format(doc['url']))
+                port = ''
 
-        self._log.debug('Parsed document + index in {} ms after reply.'.format((timer() - start) * 1000))
+            doc['url'] = unicode('{}://{}{}{}'.format(
+                flow.request.scheme,
+                flow.request.host,
+                port,
+                flow.request.path
+            ), "utf-8")
 
-    def _visible(self, element):
-        if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
-            return False
-        elif isinstance(element, Comment):
-            return False
+            # we only care about success
+            if flow.response.code < 200 or flow.response.code >= 300:
+                log.debug('{} is not HTTP 2xx; skipping'.format(doc['url']))
+                return
 
-        if element.strip():
-            return True
-        return False
+            # check content type for HTML
+            is_html = False
+            content_type = flow.response.headers.get('content-type')
+            if content_type:
+                for h in content_type:
+                    if h.lower().startswith('text/html'):
+                        is_html = True
+                        break;
+
+            # we only care about HTML
+            if not is_html:
+                log.debug('{} is not HTML; skipping'.format(doc['url']))
+                return
+
+            # only care about GET, too
+            if flow.request.method != 'GET':
+                log.debug('{} is not GET; skipping'.format(doc['url']))
+                return
+
+            # avoid reindexing localhost (self)
+            if flow.request.host in ['127.0.0.1', 'localhost']:
+                log.debug('{} is localhost; skipping'.format(doc['url']))
+                return
+
+            # if we get this far, we have a response that we probably want to index
+            flow.response.decode()
+            soup = BeautifulSoup(flow.response.content, "lxml")
+            if soup.title and soup.title.string:
+                doc['title'] = soup.title.string.strip()
+            else:
+                doc['title'] = u''
+
+            texts = soup.findAll(text=True)
+            visible_texts = filter(element_visible, texts)
+            if visible_texts:
+                doc['content'] = re.sub(r'\s+', ' ', ' '.join(visible_texts))
+            else:
+                doc['content'] = None
+
+            # we only care to store non-empty docs:
+            try:
+                if doc['content']:
+                    writer = ix.writer()
+                    writer.add_document(**doc)
+                    writer.commit()
+
+                    log.info('{} -> {}'.format(doc['url'], doc['title']))
+                else:
+                    log.info('{} (not indexed)'.format(doc['url']))
+            except UnicodeEncodeError:
+                log.warn('{} Unicode error in doc. Of course.'.format(doc['url']))
+
+            log.debug('Parsed document + index in {} ms.'.format((timer() - start) * 1000))
+
+        parse_index_doc(flow, self._log, self._ix)
+        flow.reply()
+        self._log.debug('Replied to proxy request in {} ms.'.format((timer() - start) * 1000))
 
 
 def set_up_proxy(port, cert_path):
