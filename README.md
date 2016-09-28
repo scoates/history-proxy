@@ -25,3 +25,8 @@ Set your browser's HTTP proxy to `127.0.0.1:8080`.
 To see your history: http://127.0.0.1:8000/
 
 To search: http://127.0.0.1:8000/search?q=bleepbloop
+
+
+## Known
+
+Has a problem with some https with SNI on OS X El Capitan. Not sure about newer versions. I have `OpenSSL 0.9.8zh 14 Jan 2016` which it seems does not handle SNI properly, so sites like https://prometheus.io/ will crap out (SSL error on connect).
