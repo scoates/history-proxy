@@ -1,14 +1,14 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 """
 
 import re
 from libmproxy import controller, proxy
 from libmproxy.proxy.server import ProxyServer
-from bs4 import BeautifulSoup
-from bs4.element import Comment
 from datetime import datetime
 from timeit import default_timer as timer
+from parsers import get_parser
 
 from whoosh.fields import Schema, TEXT, ID, DATETIME
 
@@ -26,16 +26,6 @@ def run_async(func):
         return func_hl
 
     return async_func
-
-def element_visible(element):
-    if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
-        return False
-    elif isinstance(element, Comment):
-        return False
-
-    if element.strip():
-        return True
-    return False
 
 @run_async
 def parse_index_doc(flow, log, ix):
@@ -63,18 +53,12 @@ def parse_index_doc(flow, log, ix):
         log.debug('{} is not HTTP 2xx; skipping'.format(doc['url']))
         return
 
-    # check content type for HTML
-    is_html = False
-    content_type = flow.response.headers.get('content-type')
-    if content_type:
-        for h in content_type:
-            if h.lower().startswith('text/html'):
-                is_html = True
-                break;
+    # check content type for parsability
+    parser = get_parser(flow.response)
 
-    # we only care about HTML
-    if not is_html:
-        log.debug('{} is not HTML; skipping'.format(doc['url']))
+    # we only care about parsable things
+    if not parser:
+        log.debug('{} is not parsable; skipping'.format(doc['url']))
         return
 
     # only care about GET, too
@@ -89,18 +73,8 @@ def parse_index_doc(flow, log, ix):
 
     # if we get this far, we have a response that we probably want to index
     flow.response.decode()
-    soup = BeautifulSoup(flow.response.content, "lxml")
-    if soup.title and soup.title.string:
-        doc['title'] = soup.title.string.strip()
-    else:
-        doc['title'] = u''
-
-    texts = soup.findAll(text=True)
-    visible_texts = filter(element_visible, texts)
-    if visible_texts:
-        doc['content'] = re.sub(r'\s+', ' ', ' '.join(visible_texts))
-    else:
-        doc['content'] = None
+    parsed_doc = parser.parse(flow.response)
+    doc.update(parsed_doc)
 
     # we only care to store non-empty docs:
     try:
