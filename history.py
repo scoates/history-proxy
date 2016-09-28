@@ -9,7 +9,6 @@ from libmproxy.proxy.server import ProxyServer
 from datetime import datetime
 from timeit import default_timer as timer
 from parsers import get_parser
-
 from whoosh.fields import Schema, TEXT, ID, DATETIME
 
 import logging
@@ -83,7 +82,7 @@ def parse_index_doc(flow, log, ix):
             writer.add_document(**doc)
             writer.commit()
 
-            log.info('{} -> {}'.format(doc['url'], doc['title']))
+            log.info(u'{} -> {}'.format(doc['url'], doc['title']))
         else:
             log.info('{} (not indexed)'.format(doc['url']))
     except UnicodeEncodeError:

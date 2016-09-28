@@ -17,6 +17,7 @@ def get_charset(request):
         mimetype, options = cgi.parse_header(header)
         if 'charset' in options:
             return options['charset']
+
     return chardet.detect(request.content)['encoding']
 
 class RequestParser(object):
@@ -57,7 +58,8 @@ class HTMLParser(RequestParser):
     @classmethod
     def parse(cls, request):
         output = {}
-        soup = BeautifulSoup(request.content, "lxml")
+
+        soup = BeautifulSoup(request.content, "lxml", from_encoding=get_charset(request))
         if soup.title and soup.title.string:
             output['title'] = soup.title.string.strip()
         else:
@@ -66,7 +68,7 @@ class HTMLParser(RequestParser):
         texts = soup.findAll(text=True)
         visible_texts = [text for text in texts if cls.element_visible(text)]
         if visible_texts:
-            output['content'] = re.sub(r'\s+', ' ', ' '.join(visible_texts))
+            output['content'] = re.sub(r'\s+', ' ', u' '.join(visible_texts))
         else:
             output['content'] = None
 
