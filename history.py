@@ -147,11 +147,8 @@ def set_up_proxy(port, cert_path):
     server = ProxyServer(config)
     return HistoryMaster(server)
 
-
-if __name__ == "__main__":
-
+def main():
     from whoosh.index import exists_in, open_dir, create_in
-    from whoosh.fields import TEXT, ID, DATETIME
     import os, sys
     import argparse
 
@@ -249,3 +246,7 @@ if __name__ == "__main__":
         app.config['LOGGER_NAME'] = 'history'
         app.config['TESTING'] = 'True'
         app.run(host='127.0.0.1', port=args.app_port)
+
+
+if __name__ == "__main__":
+    main()
