@@ -204,7 +204,7 @@ def main():
 
         @app.route('/search')
         def search():
-            query = QueryParser("content", ix.schema).parse(request.args.get('q'))
+            query = QueryParser("content", ix.schema).parse(request.args.get('q', ''))
             results = ix.searcher().search(query, limit=100)
             return render_template('history.html', hits=results)
 
