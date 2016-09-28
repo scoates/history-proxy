@@ -120,10 +120,6 @@ class HistoryMaster(controller.Master):
         return False
 
 
-# def set_up_es(host, port):
-#     from elasticsearch import Elasticsearch
-#     return Elasticsearch([{'host': args.es_host, 'port': args.es_port}])
-
 def set_up_proxy(port, cert_path):
     config = proxy.ProxyConfig(
         port=port,
@@ -158,7 +154,6 @@ if __name__ == "__main__":
     log.setLevel(logLevel)
 
     if args.verbose:
-        # elasticsearch + urllib3
         logging.basicConfig(level=logLevel)
         log.warn("Verbose: set all logging levels to: {}".format(logLevel))
     else:
@@ -190,8 +185,6 @@ if __name__ == "__main__":
     else:
         # and here's where we run the main server
 
-        # ...
-
         from flask import Flask, jsonify, render_template, Response, request
         from flask_bootstrap import Bootstrap
         from whoosh.query import Every
@@ -210,7 +203,6 @@ if __name__ == "__main__":
         signal.signal(signal.SIGINT, signal_handler)
 
         app = Flask('history')
-        # need to do this because otherwise it forks and messes up the child
         Bootstrap(app)
 
         @app.template_filter('nicer_url')
