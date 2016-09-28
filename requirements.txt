@@ -1,5 +1,6 @@
 Flask==0.11.1
 Flask-Bootstrap==3.3.7.0
 beautifulsoup4==4.4.1
+chardet==2.3.0
 mitmproxy==0.13
 Whoosh==2.7.4
