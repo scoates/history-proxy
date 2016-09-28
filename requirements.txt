@@ -1,0 +1,3 @@
+beautifulsoup4==4.4.1
+mitmproxy==0.13
+Whoosh==2.7.4

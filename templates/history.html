@@ -1,0 +1,10 @@
+{% extends "bootstrap/base.html" %}
+{% block content %}
+  <ul class="entries">
+  {% for hit in hits %}
+    <li>{{ hit.ts }}: <a href="{{hit.url}}">{{ hit.url|nicer_url }}</a>
+  {% else %}
+    <li><em>No hits.</em>
+  {% endfor %}
+  </ul>
+{% endblock %}
