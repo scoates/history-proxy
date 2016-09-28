@@ -8,6 +8,7 @@ from libmproxy.proxy.server import ProxyServer
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from datetime import datetime
+from timeit import default_timer as timer
 
 from whoosh.fields import Schema, TEXT, ID, DATETIME
 
@@ -27,6 +28,10 @@ class HistoryMaster(controller.Master):
             self.shutdown()
 
     def handle_response(self, flow):
+        flow.reply()
+
+        start = timer()
+
         doc = {
             'ts': datetime.now()
         }
@@ -48,7 +53,6 @@ class HistoryMaster(controller.Master):
         # we only care about success
         if flow.response.code < 200 or flow.response.code >= 300:
             self._log.debug('{} is not HTTP 2xx; skipping'.format(doc['url']))
-            flow.reply()
             return
 
         # check content type for HTML
@@ -63,19 +67,16 @@ class HistoryMaster(controller.Master):
         # we only care about HTML
         if not is_html:
             self._log.debug('{} is not HTML; skipping'.format(doc['url']))
-            flow.reply()
             return
 
         # only care about GET, too
         if flow.request.method != 'GET':
             self._log.debug('{} is not GET; skipping'.format(doc['url']))
-            flow.reply()
             return
 
         # avoid reindexing localhost (self)
         if flow.request.host in ['127.0.0.1', 'localhost']:
             self._log.debug('{} is localhost; skipping'.format(doc['url']))
-            flow.reply()
             return
 
         # if we get this far, we have a response that we probably want to index
@@ -106,8 +107,7 @@ class HistoryMaster(controller.Master):
         except UnicodeEncodeError:
             self._log.warn('{} Unicode error in doc. Of course.'.format(doc['url']))
 
-        # ebb
-        flow.reply()
+        self._log.debug('Parsed document + index in {} ms after reply.'.format((timer() - start) * 1000))
 
     def _visible(self, element):
         if element.parent.name in ['style', 'script', '[document]', 'head', 'title']:
