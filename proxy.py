@@ -6,6 +6,7 @@ from history_proxy.mitm import run_mitm_proxy
 from whoosh.index import exists_in, open_dir, create_in
 from whoosh.fields import Schema, TEXT, ID, DATETIME
 import sys
+import signal
 
 def get_whoosh(index_dir):
     if exists_in(index_dir):
@@ -19,6 +20,17 @@ def get_whoosh(index_dir):
             title=TEXT(stored=True),
             content=TEXT(stored=True))
         return create_in(index_dir, schema)
+
+def make_signal_handler(pid):
+    def signal_handler(sig, frame):
+        print ""
+        print "Killing the child process"
+        os.kill(pid, signal.SIGQUIT)
+        # wait for mitmproxy
+        os.waitpid(pid, 0)
+        print "Dead."
+        sys.exit(0)
+    return signal_handler
 
 def main():
     parser = argparse.ArgumentParser(description='Searchable history web proxy.')
@@ -55,7 +67,9 @@ def main():
         sys.exit(0)
     else:
         # and here's where we run the main server
-        app = make_flask_app(pid, whoosh, args.index_dir)
+        signal.signal(signal.SIGINT, make_signal_handler(pid))
+
+        app = make_flask_app(whoosh, args.index_dir)
         log.info('Starting app server on port http://127.0.0.1:{}'.format(args.app_port))
         # intentionally hard-bound to localhost
         app.run(host='127.0.0.1', port=args.app_port)

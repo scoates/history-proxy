@@ -4,24 +4,12 @@ from flask import Flask, render_template, Response, request
 from flask_bootstrap import Bootstrap
 from whoosh.query import Every
 from whoosh.qparser import QueryParser
-import signal
 import os
 import sys
 import re
 from .webapp_config import Config
 
-def make_flask_app(pid, whoosh, index_dir):
-    def signal_handler(sig, frame):
-        print ""
-        print "Killing the child process"
-        os.kill(pid, signal.SIGQUIT)
-        # wait for mitmproxy
-        os.waitpid(pid, 0)
-        print "Dead."
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-
+def make_flask_app(whoosh, index_dir):
     app = Flask('history', static_folder='webroot')
     app.config.from_object(Config)
     Bootstrap(app)
