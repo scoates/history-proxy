@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-"""
 
 import re
 from libmproxy import controller, proxy
 from libmproxy.proxy.server import ProxyServer
 from datetime import datetime
 from timeit import default_timer as timer
-from parsers import get_parser
+from history_proxy.parsers import get_parser
 from whoosh.fields import Schema, TEXT, ID, DATETIME
 
 import logging
@@ -20,7 +18,7 @@ def run_async(func):
 
     @wraps(func)
     def async_func(*args, **kwargs):
-        func_hl = Thread(target = func, args = args, kwargs = kwargs)
+        func_hl = Thread(target=func, args=args, kwargs=kwargs)
         func_hl.start()
         return func_hl
 
@@ -173,19 +171,19 @@ def main():
     else:
         # and here's where we run the main server
 
-        from flask import Flask, jsonify, render_template, Response, request
+        from flask import Flask, render_template, Response, request
         from flask_bootstrap import Bootstrap
         from whoosh.query import Every
         from whoosh.qparser import QueryParser
         import signal
 
         def signal_handler(sig, frame):
-            print("")
-            print("Killing the child process")
+            print ""
+            print "Killing the child process"
             os.kill(pid, signal.SIGQUIT)
             # wait for mitmproxy
             os.waitpid(pid, 0)
-            print("Dead.")
+            print "Dead."
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
